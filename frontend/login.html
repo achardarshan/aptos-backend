@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aptos — Login</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="logo-icon">🏠</div>
+      <div>
+        <div class="logo-text">Ap<span>tos</span></div>
+      </div>
+    </div>
+
+    <h2>Welcome back</h2>
+    <p class="subtitle">Sign in to your society portal</p>
+
+    <!-- Error alert (hidden by default) -->
+    <div id="loginError" class="alert alert-error hidden">
+      <span>⚠</span> <span id="loginErrorMsg">Invalid credentials</span>
+    </div>
+
+    <!-- Login Form -->
+    <div class="form-group">
+      <label>Email address</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com" />
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Enter your password" />
+    </div>
+
+    <button class="btn btn-primary btn-full" id="loginBtn" onclick="handleLogin()">
+      Sign In
+    </button>
+
+    <p style="text-align:center; margin-top:20px; font-size:0.88rem; color:var(--text-muted);">
+      Don't have an account?
+      <a href="register.html" style="color:var(--accent);">Register here</a>
+    </p>
+
+    <!-- Demo credentials -->
+    <div style="margin-top:28px; padding:14px; background:var(--bg3); border-radius:8px; border:1px solid var(--border);">
+      <p style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:10px;">Demo Credentials</p>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-secondary btn-sm" onclick="fillDemo('admin@aptos.com','admin123')">
+          👑 Admin Login
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="fillDemo('resident@aptos.com','resident123')">
+          🏠 Resident Login
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="fillDemo('security@aptos.com','security123')">
+          🔒 Security Login
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // If already logged in, redirect to dashboard
+  if (localStorage.getItem('aptos_token')) {
+    window.location.href = 'dashboard.html';
+  }
+
+  // Fill in demo credentials on button click
+  function fillDemo(email, password) {
+    document.getElementById('loginEmail').value = email;
+    document.getElementById('loginPassword').value = password;
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn = document.getElementById('loginBtn');
+    const errorDiv = document.getElementById('loginError');
+    const errorMsg = document.getElementById('loginErrorMsg');
+
+    // Basic validation
+    if (!email || !password) {
+      errorDiv.classList.remove('hidden');
+      errorMsg.textContent = 'Please fill in all fields.';
+      return;
+    }
+
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+    errorDiv.classList.add('hidden');
+
+    try {
+      const res = await fetch('https://aptos-backend-vofg.onrender.com/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Store token and user info in localStorage
+        localStorage.setItem('aptos_token', data.token);
+        localStorage.setItem('aptos_user', JSON.stringify(data.user));
+        window.location.href = 'dashboard.html';
+      } else {
+        errorDiv.classList.remove('hidden');
+        errorMsg.textContent = data.message || 'Login failed. Please try again.';
+      }
+    } catch (err) {
+      errorDiv.classList.remove('hidden');
+      errorMsg.textContent = 'Cannot connect to server. Make sure the backend is running.';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Sign In';
+    }
+  }
+
+  // Allow pressing Enter to submit
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleLogin();
+  });
+</script>
+
+</body>
+</html>
