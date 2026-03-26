@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aptos — Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ── App Layout ─────────────────────────────────────────────────────────────── -->
+<div class="app-layout">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🏠</div>
+      <div>
+        <div class="logo-name">Ap<span>tos</span></div>
+        <div class="logo-tagline">Society Management</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <!-- Available to all roles -->
+      <div class="nav-section-title">Overview</div>
+      <button class="nav-item active" onclick="showSection('dashboard')" id="nav-dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </button>
+
+      <!-- Visitor Management -->
+      <div class="nav-section-title">Visitors</div>
+      <button class="nav-item" onclick="showSection('visitors')" id="nav-visitors">
+        <span class="nav-icon">🚶</span> Visitor Log
+        <span class="nav-badge hidden" id="pendingVisitorsBadge">0</span>
+      </button>
+
+      <!-- Resident + Admin sections -->
+      <div id="residentNav">
+        <div class="nav-section-title">Community</div>
+        <button class="nav-item" onclick="showSection('complaints')" id="nav-complaints">
+          <span class="nav-icon">📋</span> Complaints
+        </button>
+        <button class="nav-item" onclick="showSection('staff')" id="nav-staff">
+          <span class="nav-icon">👷</span> Staff
+        </button>
+        <button class="nav-item" onclick="showSection('payments')" id="nav-payments">
+          <span class="nav-icon">💰</span> Payments
+        </button>
+      </div>
+
+      <!-- Admin-only sections -->
+      <div id="adminNav" class="hidden">
+        <div class="nav-section-title">Admin</div>
+        <button class="nav-item" onclick="showSection('users')" id="nav-users">
+          <span class="nav-icon">👥</span> All Users
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="sidebarAvatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebarName">Loading...</div>
+          <div class="user-role" id="sidebarRole">—</div>
+        </div>
+      </div>
+      <button class="btn btn-danger btn-sm btn-full mt-1" onclick="logout()">
+        🚪 Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ──────────────────────────────────────────────────────────── -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <span class="topbar-title" id="topbarTitle">Dashboard</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="notif-btn" onclick="toggleNotifications()" title="Notifications">
+          🔔 <span class="notif-dot hidden" id="notifDot"></span>
+        </button>
+        <span class="tag" id="topbarRole">—</span>
+      </div>
+    </header>
+
+    <!-- Notifications Panel (hidden by default) -->
+    <div class="notif-panel hidden" id="notifPanel">
+      <div class="notif-panel-header">
+        <span class="notif-panel-title">🔔 Notifications</span>
+        <button class="btn btn-sm btn-secondary" onclick="markAllRead()">Mark all read</button>
+      </div>
+      <div id="notifList"><div class="notif-empty">No notifications yet</div></div>
+      <div class="notif-footer">
+        <button onclick="toggleNotifications()">Close</button>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────────────────────────── -->
+    <!-- CONTENT AREA                                                              -->
+    <!-- ────────────────────────────────────────────────────────────────────────── -->
+    <main class="content-area">
+
+      <!-- ── 1. DASHBOARD OVERVIEW ──────────────────────────────────────────── -->
+      <section class="page-section active" id="section-dashboard">
+
+        <div class="welcome-banner">
+          <div>
+            <h2 id="welcomeMsg">Good morning! 👋</h2>
+            <p id="welcomeSub">Here's what's happening in your society today.</p>
+          </div>
+          <div class="welcome-time" id="liveTime"></div>
+        </div>
+
+        <!-- Stats (shown to admin) -->
+        <div id="adminStats" class="hidden">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Residents</div>
+              <div class="stat-value blue" id="statResidents">—</div>
+              <div class="stat-sub">Registered users</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Pending Visitors</div>
+              <div class="stat-value accent" id="statPendingVisitors">—</div>
+              <div class="stat-sub">Awaiting approval</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Open Complaints</div>
+              <div class="stat-value red" id="statComplaints">—</div>
+              <div class="stat-sub">Unresolved</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Dues Unpaid</div>
+              <div class="stat-value red" id="statUnpaid">—</div>
+              <div class="stat-sub">Maintenance overdue</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick actions based on role -->
+        <h3 style="margin-bottom:14px;">Quick Actions</h3>
+        <div class="quick-actions" id="quickActions"></div>
+
+        <!-- Recent visitors table (all roles) -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🚶 Recent Visitors</span>
+            <button class="btn btn-sm btn-secondary" onclick="showSection('visitors')">View All</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Flat</th>
+                  <th>Purpose</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="recentVisitorsTable">
+                <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚶</div><p>No recent visitors</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── 2. VISITOR LOG ─────────────────────────────────────────────────── -->
+      <section class="page-section" id="section-visitors">
+
+        <div class="section-header">
+          <h2>🚶 Visitor Management</h2>
+          <div id="addVisitorBtnWrap">
+            <button class="btn btn-primary" onclick="openModal('addVisitorModal')">
+              + Add Visitor
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" onclick="filterVisitors('all', this)">All</button>
+          <button class="tab-btn" onclick="filterVisitors('pending', this)">Pending</button>
+          <button class="tab-btn" onclick="filterVisitors('approved', this)">Approved</button>
+          <button class="tab-btn" onclick="filterVisitors('rejected', this)">Rejected</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Flat</th>
+                  <th>Purpose</th>
+                  <th>Status</th>
+                  <th>Entry</th>
+                  <th>Exit</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="visitorsTable">
+                <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🚶</div><p>Loading visitors...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. COMPLAINTS ─────────────────────────────────────────────────── -->
+      <section class="page-section" id="section-complaints">
+
+        <div class="section-header">
+          <h2>📋 Complaints</h2>
+          <button class="btn btn-primary" onclick="openModal('addComplaintModal')" id="addComplaintBtn">
+            + New Complaint
+          </button>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="filterComplaints('all', this)">All</button>
+          <button class="tab-btn" onclick="filterComplaints('pending', this)">Pending</button>
+          <button class="tab-btn" onclick="filterComplaints('in-progress', this)">In Progress</button>
+          <button class="tab-btn" onclick="filterComplaints('resolved', this)">Resolved</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Flat</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="complaintsTable">
+                <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><p>Loading complaints...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. STAFF ──────────────────────────────────────────────────────── -->
+      <section class="page-section" id="section-staff">
+
+        <div class="section-header">
+          <h2>👷 Staff Management</h2>
+          <button class="btn btn-primary" onclick="openModal('addStaffModal')" id="addStaffBtn">
+            + Add Staff
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Phone</th>
+                  <th>Flat</th>
+                  <th>Today's Attendance</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staffTable">
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👷</div><p>Loading staff...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. PAYMENTS ───────────────────────────────────────────────────── -->
+      <section class="page-section" id="section-payments">
+
+        <div class="section-header">
+          <h2>💰 Payments</h2>
+          <div id="paymentAdminBtns" class="hidden">
+            <button class="btn btn-primary" onclick="openModal('addPaymentModal')">
+              + Add Due
+            </button>
+            <button class="btn btn-secondary" onclick="openModal('bulkPaymentModal')" style="margin-left:8px;">
+              ⚡ Bulk Add
+            </button>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="filterPayments('all', this)">All</button>
+          <button class="tab-btn" onclick="filterPayments('unpaid', this)">Unpaid</button>
+          <button class="tab-btn" onclick="filterPayments('paid', this)">Paid</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Month</th>
+                  <th>Flat</th>
+                  <th>Amount</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="paymentsTable">
+                <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">💰</div><p>Loading payments...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6. USERS (Admin only) ─────────────────────────────────────────── -->
+      <section class="page-section" id="section-users">
+
+        <div class="section-header">
+          <h2>👥 All Users</h2>
+          <button class="btn btn-secondary" onclick="loadUsers()">🔄 Refresh</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Flat</th>
+                  <th>Phone</th>
+                  <th>Joined</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable">
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>Loading users...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- MODALS                                                                     -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+
+<!-- Add Visitor Modal -->
+<div class="modal-overlay hidden" id="addVisitorModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🚶 Register Visitor</h3>
+      <button class="modal-close" onclick="closeModal('addVisitorModal')">✕</button>
+    </div>
+    <div id="visitorFormMsg"></div>
+    <div class="form-group">
+      <label>Visitor Name</label>
+      <input type="text" id="vName" placeholder="Full name" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="vPhone" placeholder="+91 XXXXXXXXXX" />
+      </div>
+      <div class="form-group">
+        <label>Flat Number</label>
+        <input type="text" id="vFlat" placeholder="e.g. A-101" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Purpose of Visit</label>
+      <input type="text" id="vPurpose" placeholder="e.g. Delivery, Meeting, etc." />
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('addVisitorModal')">Cancel</button>
+      <button class="btn btn-primary" id="addVisitorBtn" onclick="submitAddVisitor()">Register</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update Visitor Status Modal (Resident/Admin) -->
+<div class="modal-overlay hidden" id="visitorStatusModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>✅ Update Visitor Status</h3>
+      <button class="modal-close" onclick="closeModal('visitorStatusModal')">✕</button>
+    </div>
+    <p id="visitorStatusMsg" style="margin-bottom:18px;color:var(--text-muted);font-size:0.9rem;"></p>
+    <input type="hidden" id="statusVisitorId" />
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="closeModal('visitorStatusModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="submitVisitorStatus('rejected')">✕ Reject</button>
+      <button class="btn btn-success" onclick="submitVisitorStatus('approved')">✓ Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Complaint Modal -->
+<div class="modal-overlay hidden" id="addComplaintModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📋 New Complaint</h3>
+      <button class="modal-close" onclick="closeModal('addComplaintModal')">✕</button>
+    </div>
+    <div id="complaintFormMsg"></div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="cTitle" placeholder="Brief title for the complaint" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Category</label>
+        <select id="cCategory">
+          <option value="maintenance">Maintenance</option>
+          <option value="security">Security</option>
+          <option value="noise">Noise</option>
+          <option value="cleanliness">Cleanliness</option>
+          <option value="water">Water</option>
+          <option value="electricity">Electricity</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="cPriority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="cDesc" placeholder="Describe the issue in detail..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('addComplaintModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddComplaint()">Submit Complaint</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update Complaint Status Modal (Admin) -->
+<div class="modal-overlay hidden" id="updateComplaintModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📋 Update Complaint</h3>
+      <button class="modal-close" onclick="closeModal('updateComplaintModal')">✕</button>
+    </div>
+    <input type="hidden" id="updateComplaintId" />
+    <div class="form-group">
+      <label>Status</label>
+      <select id="updateComplaintStatus">
+        <option value="pending">Pending</option>
+        <option value="in-progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Admin Note (optional)</label>
+      <textarea id="updateComplaintNote" placeholder="Add a note for the resident..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('updateComplaintModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitUpdateComplaint()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Staff Modal -->
+<div class="modal-overlay hidden" id="addStaffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>👷 Add Staff Member</h3>
+      <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
+    </div>
+    <div id="staffFormMsg"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="sName" placeholder="Full name" />
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="sPhone" placeholder="Phone number" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="sType">
+          <option value="maid">Maid</option>
+          <option value="cook">Cook</option>
+          <option value="driver">Driver</option>
+          <option value="gardener">Gardener</option>
+          <option value="watchman">Watchman</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Flat Number</label>
+        <input type="text" id="sFlat" placeholder="e.g. A-101" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('addStaffModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddStaff()">Add Staff</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Payment Modal (Admin) -->
+<div class="modal-overlay hidden" id="addPaymentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>💰 Add Payment Due</h3>
+      <button class="modal-close" onclick="closeModal('addPaymentModal')">✕</button>
+    </div>
+    <div id="paymentFormMsg"></div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="pTitle" placeholder="e.g. March 2024 Maintenance" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" id="pAmount" placeholder="e.g. 2500" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Month</label>
+        <input type="month" id="pMonth" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Flat Number</label>
+        <input type="text" id="pFlat" placeholder="e.g. A-101" />
+      </div>
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" id="pDueDate" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('addPaymentModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddPayment()">Create Due</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Payment Modal (Admin) -->
+<div class="modal-overlay hidden" id="bulkPaymentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⚡ Bulk Payment — All Residents</h3>
+      <button class="modal-close" onclick="closeModal('bulkPaymentModal')">✕</button>
+    </div>
+    <div class="alert alert-info"><span>ℹ</span> This will create payment dues for ALL registered residents.</div>
+    <div id="bulkPaymentFormMsg"></div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="bpTitle" placeholder="e.g. April 2024 Maintenance" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" id="bpAmount" placeholder="e.g. 2500" min="0" />
+      </div>
+      <div class="form-group">
+        <label>Month</label>
+        <input type="month" id="bpMonth" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Due Date</label>
+      <input type="date" id="bpDueDate" />
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeModal('bulkPaymentModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBulkPayment()">Create for All</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complaint Detail Modal -->
+<div class="modal-overlay hidden" id="complaintDetailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📋 Complaint Details</h3>
+      <button class="modal-close" onclick="closeModal('complaintDetailModal')">✕</button>
+    </div>
+    <div id="complaintDetailContent"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
