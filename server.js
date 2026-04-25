@@ -2,16 +2,30 @@
 const express = require('express');
 const cors    = require('cors');
 const dotenv  = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 const connectDB = require('./config/db');
 
 dotenv.config();
 connectDB();
 
 const app = express();
+const clientBuildPath = path.join(__dirname, 'client', 'dist');
+const legacyFrontendPath = path.join(__dirname, 'frontend');
+const reactBuildExists = fs.existsSync(path.join(clientBuildPath, 'index.html'));
+const publicPath = reactBuildExists ? clientBuildPath : legacyFrontendPath;
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE'], allowedHeaders: ['Content-Type','Authorization'] }));
 app.use(express.json());
+app.use(express.static(publicPath));
+
+const sendFrontendApp = (req, res) => {
+  res.sendFile(path.join(publicPath, 'index.html'));
+};
+
+// ─── Frontend Root ────────────────────────────────────────────────────────────
+app.get('/', sendFrontendApp);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/authRoutes'));
@@ -115,10 +129,8 @@ app.get('/api/seed', async (req, res) => {
   }
 });
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.json({ success: true, message: 'Aptos Backend API. Frontend is hosted on Netlify.' });
-});
+// Serve the frontend app for non-API routes.
+app.get(/^\/(?!api).*/, sendFrontendApp);
 
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -129,6 +141,7 @@ app.use((err, req, res, next) => {
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Aptos server running on port ${PORT}`);
-  console.log(`🔗 Visit /api/seed in browser to populate the database`);
+  console.log(`Aptos server running on port ${PORT}`);
+  console.log(`Visit /api/seed in browser to populate the database`);
+  console.log(`Frontend served from ${reactBuildExists ? 'client/dist' : 'frontend'}`);
 });

@@ -1,7 +1,7 @@
 // app.js — Aptos Frontend Logic
 // Handles all API calls, DOM manipulation, and user interactions
 
-const API = 'https://aptos-backend-vofg.onrender.com/api';
+const API = `${window.location.origin}/api`;
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 

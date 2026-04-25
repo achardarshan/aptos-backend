@@ -17,7 +17,7 @@ const Payment   = require('./models/Payment');
 async function seed() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
 
     // Clear existing data
     await Promise.all([
@@ -27,7 +27,7 @@ async function seed() {
       Complaint.deleteMany(),
       Payment.deleteMany(),
     ]);
-    console.log('🗑  Cleared existing data');
+    console.log('Cleared existing data');
 
     // ── Create Users ──────────────────────────────────────────────────────────
     const adminPass    = await bcrypt.hash('admin123', 10);
@@ -301,10 +301,10 @@ async function seed() {
       },
     });
 
-    console.log('🔔 Added sample notifications');
+    console.log('Added sample notifications');
 
-    console.log('\n✅ Database seeded successfully!');
-    console.log('\n📋 Login credentials:');
+    console.log('\nDatabase seeded successfully!');
+    console.log('\nLogin credentials:');
     console.log('   Admin:    admin@aptos.com    / admin123');
     console.log('   Resident: resident@aptos.com / resident123');
     console.log('   Security: security@aptos.com / security123');

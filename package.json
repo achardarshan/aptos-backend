@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "npm --prefix client run build",
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -138,7 +138,7 @@
     btn.innerHTML = '<span class="spinner"></span> Creating account...';
 
     try {
-      const res = await fetch('https://aptos-backend-vofg.onrender.com/api/auth/register', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, role, flatNumber, phone }),
