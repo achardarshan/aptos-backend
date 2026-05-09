@@ -37,6 +37,124 @@ function EmptyRow({ message, colSpan }) {
   );
 }
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const countCreatedBetween = (items, start, end) => items.reduce((count, item) => {
+  const createdAt = new Date(item.createdAt).getTime();
+
+  if (Number.isNaN(createdAt)) {
+    return count;
+  }
+
+  return createdAt >= start.getTime() && createdAt < end.getTime() ? count + 1 : count;
+}, 0);
+
+const buildActivitySeries = (visitors, complaints, payments) => {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(startOfToday);
+    day.setDate(day.getDate() - (6 - index));
+
+    const nextDay = new Date(day);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const visitorsCount = countCreatedBetween(visitors, day, nextDay);
+    const complaintsCount = countCreatedBetween(complaints, day, nextDay);
+    const paymentsCount = countCreatedBetween(payments, day, nextDay);
+
+    return {
+      label: DAY_LABELS[day.getDay()],
+      dateLabel: day.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      visitors: visitorsCount,
+      complaints: complaintsCount,
+      payments: paymentsCount,
+      total: visitorsCount + complaintsCount + paymentsCount,
+    };
+  });
+};
+
+function DashboardActivityChart({ role, series, totals }) {
+  const chartTitle = role === 'security'
+    ? 'Gate activity trend'
+    : role === 'resident'
+      ? 'Your weekly activity'
+      : 'Community activity trend';
+
+  const chartSubtitle = role === 'security'
+    ? 'Visitor logs and follow-ups recorded over the last seven days.'
+    : role === 'resident'
+      ? 'Records tied to your account over the last seven days.'
+      : 'Visitors, complaints, and dues created over the last seven days.';
+
+  const activityMax = Math.max(1, ...series.map((day) => day.total));
+  const hasActivity = totals.total > 0;
+  const topModule = [
+    { key: 'visitors', label: 'Visitors', value: totals.visitors },
+    { key: 'complaints', label: 'Complaints', value: totals.complaints },
+    { key: 'payments', label: 'Payments', value: totals.payments },
+  ].sort((left, right) => right.value - left.value)[0];
+
+  return (
+    <article className="card dashboard-chart-card">
+      <div className="card-header">
+        <div>
+          <div className="card-title">{chartTitle}</div>
+          <div className="card-subtitle">{chartSubtitle}</div>
+        </div>
+        <Badge tone="accent">{totals.total} events</Badge>
+      </div>
+
+      <div className="dashboard-chart-layout">
+        <div className="dashboard-chart-panel">
+          <div className="dashboard-chart-bars" aria-label={chartTitle}>
+            {series.map((day) => (
+              <div
+                key={`${day.label}-${day.dateLabel}`}
+                className="dashboard-chart-day"
+                title={`${day.dateLabel}: ${day.visitors} visitors, ${day.complaints} complaints, ${day.payments} payments`}
+              >
+                <span className="dashboard-chart-total">{day.total}</span>
+                <div className="dashboard-chart-stack">
+                  <span className="dashboard-chart-segment dashboard-chart-segment-visitors" style={{ height: `${(day.visitors / activityMax) * 100}%` }} />
+                  <span className="dashboard-chart-segment dashboard-chart-segment-complaints" style={{ height: `${(day.complaints / activityMax) * 100}%` }} />
+                  <span className="dashboard-chart-segment dashboard-chart-segment-payments" style={{ height: `${(day.payments / activityMax) * 100}%` }} />
+                </div>
+                <span className="dashboard-chart-label">{day.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="dashboard-chart-legend">
+            <Badge tone="primary">Visitors {totals.visitors}</Badge>
+            <Badge tone="danger">Complaints {totals.complaints}</Badge>
+            <Badge tone="warning">Payments {totals.payments}</Badge>
+          </div>
+        </div>
+
+        <aside className="dashboard-chart-summary">
+          <div className="dashboard-chart-stat">
+            <span>Total records</span>
+            <strong>{totals.total}</strong>
+            <p>Created in the last 7 days.</p>
+          </div>
+          <div className="dashboard-chart-stat">
+            <span>Peak day</span>
+            <strong>{totals.peakDay ? totals.peakDay.label : '—'}</strong>
+            <p>{totals.peakDay ? `${totals.peakDay.total} records on ${totals.peakDay.dateLabel}` : 'No activity yet.'}</p>
+          </div>
+          <div className="dashboard-chart-stat">
+            <span>Top module</span>
+            <strong>{hasActivity ? topModule.label : '—'}</strong>
+            <p>{hasActivity ? `${topModule.value} visible items` : 'Nothing recorded yet.'}</p>
+          </div>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const user = getUser() || {};
@@ -89,6 +207,25 @@ export default function DashboardPage() {
       totalPayments,
     };
   }, [users, visitors, complaints, payments]);
+
+  const activitySeries = useMemo(
+    () => buildActivitySeries(visitors, complaints, payments),
+    [visitors, complaints, payments],
+  );
+
+  const activityTotals = useMemo(() => {
+    const peakDay = activitySeries.reduce((currentPeak, day) => (
+      day.total > currentPeak.total ? day : currentPeak
+    ), activitySeries[0]);
+
+    return {
+      total: activitySeries.reduce((sum, day) => sum + day.total, 0),
+      visitors: visitors.length,
+      complaints: complaints.length,
+      payments: payments.length,
+      peakDay,
+    };
+  }, [activitySeries, visitors.length, complaints.length, payments.length]);
 
   const firstName = user.name ? user.name.trim().split(/\s+/)[0] : '';
   const heroTitle = firstName ? `Good afternoon, ${firstName}.` : 'Good afternoon.';
@@ -244,6 +381,8 @@ export default function DashboardPage() {
               <MetricCard label="Recent activity" value={recentVisitors.length} hint="Latest visitor records" icon={Sparkles} tone="success" />
             </>
           )}
+
+          <DashboardActivityChart role={user.role} series={activitySeries} totals={activityTotals} />
         </section>
       </section>
 

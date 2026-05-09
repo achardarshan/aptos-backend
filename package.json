@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "build": "npm --prefix client run build",
     "client:dev": "npm --prefix client run dev",
-    "client:build": "npm --prefix client run build"
+    "client:build": "npm --prefix client run build",
+    "seed:20days": "node seed-20-days.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
